@@ -1,13 +1,20 @@
 from flask import Flask
 
-# blank line
-# blank line
+
 def create_app():
     app = Flask(__name__)
+
+    @app.route('/api/message')
+    def get_message():
+        return {'message': 'Hello from Flask!'}
+
     return app
 
-# blank line
-# blank line
+
 def main():
     app = create_app()
     app.run()
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,62 @@
+name: CI/CD - Flask Backend
+
+on:
+  push:
+    branches: [ master, main, ci-cd-* ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  backend_flask:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install flake8 pytest
+
+      - name: Lint Python code
+        run: |
+          if [ -f .flake8 ] || [ -f setup.cfg ] || [ -f tox.ini ] || [ -f .pep8 ]; then
+            echo "Using project lint config"
+          else
+            echo "[flake8]" > .flake8
+            echo "max-line-length = 100" >> .flake8
+            echo "exclude = .git,__pycache__,.venv,venv" >> .flake8
+          fi
+          flake8 .
+
+      - name: Run Python tests
+        run: |
+          if [ -f pytest.ini ] || ls tests 1>/dev/null 2>&1 || ls test_*.py 1>/dev/null 2>&1; then
+            pytest -q
+          else
+            echo "No tests found, skipping tests."
+          fi
+
+  deploy:
+    needs: backend_flask
+    runs-on: ubuntu-latest
+    # environment: PROD   # (Optional) If you create an Environment, uncomment and match its name.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build Docker Image
+        run: docker build -t "${{ secrets.DOCKERHUB_USERNAME }}/backend_flask:latest" .
+
+      - name: Push Docker Image
+        run: docker push "${{ secrets.DOCKERHUB_USERNAME }}/backend_flask:latest"
